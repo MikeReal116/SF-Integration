@@ -24,6 +24,9 @@ public with sharing class AccountLinkService {
                     'The following fields were not saved due to access issue : ' + securityDecision.getRemovedFields();
             }
             generateSuccessResponse(securityDecision.getRecords().size(), message);
+            if (!securityDecision.getRecords().isEmpty()) {
+                publishAccountLinkCreatedEvent(securityDecision.getRecords());
+            }
         } else {
             generateSuccessResponse(0, 'No records to created.');
         }
@@ -64,5 +67,88 @@ public with sharing class AccountLinkService {
             }
         }
         return accountLink;
+    }
+
+    public static void publishAccountLinkCreatedEvent(List<AccountLink__c> accountLinks) {
+        List<AccountLinkCreated__e> events = new List<AccountLinkCreated__e>();
+        for (AccountLink__c accountLink : accountLinks) {
+            AccountLinkCreated__e event = new AccountLinkCreated__e(
+                Color__c = accountLink.Color__c,
+                External_Id__c = accountLink.External_Id__c,
+                Record_Id__c = accountLink.Id
+            );
+            events.add(event);
+        }
+        EventBus.publish(events);
+    }
+
+    public static void publishAccountLinkMatchedEvent(List<AccountLink__c> accountLinks) {
+        List<AccountLinkMatched__e> events = new List<AccountLinkMatched__e>();
+        for (AccountLink__c accountLink : accountLinks) {
+            AccountLinkMatched__e event = new AccountLinkMatched__e(
+                Account_Link_Id__c = accountLink.Id,
+                Account_Id__c = accountLink.Account__c
+            );
+            events.add(event);
+        }
+        System.debug('pushbliing matched event');
+        EventBus.publish(events);
+    }
+
+    public static String generateRequestBody(List<AccountLinkMatched__e> matchedAccountLinks) {
+        List<Map<String, String>> items = new List<Map<String, String>>();
+        for (AccountLinkMatched__e matchedAccountLink : matchedAccountLinks) {
+            Map<String, String> item = new Map<String, String>();
+            item.put('accountLinkId', matchedAccountLink.Account_Link_Id__c);
+            item.put('accountId', matchedAccountLink.Account_Id__c);
+            items.add(item);
+        }
+        Map<String, List<Map<String, String>>> requestBodyMap = new Map<String, List<Map<String, String>>>();
+        requestBodyMap.put('items', items);
+        return JSON.serialize(requestBodyMap);
+    }
+
+    public static void matchAccounts(List<AccountLinkCreated__e> createdAccountLinks) {
+        Set<String> externalIds = new Set<String>();
+        Set<String> colors = new Set<String>();
+        String delimiter = '-';
+        Map<String, Account> matchingKeytoAccountMap = new Map<String, Account>();
+
+        for (AccountLinkCreated__e createAccountLink : createdAccountLinks) {
+            if (createAccountLink.External_Id__c != null && createAccountLink.Color__c != null) {
+                externalIds.add(createAccountLink.External_Id__c);
+                colors.add(createAccountLink.Color__c);
+            }
+        }
+        try {
+            for (Account account : [
+                SELECT Id, External_Account_Link__c, Color__c
+                FROM Account
+                WHERE External_Account_Link__c IN :externalIds AND Color__c IN :colors
+            ]) {
+                matchingKeytoAccountMap.put(account.External_Account_Link__c + delimiter + account.Color__c, account);
+            }
+
+            List<AccountLink__c> accountLinks = new List<AccountLink__c>();
+
+            for (AccountLinkCreated__e createAccountLink : createdAccountLinks) {
+                String matchingKey = createAccountLink.External_Id__c + delimiter + createAccountLink.Color__c;
+                Account account = matchingKeytoAccountMap.get(matchingKey);
+                if (account != null) {
+                    AccountLink__c accountLink = new AccountLink__c(
+                        Account__c = account.Id,
+                        Id = createAccountLink.Record_Id__c
+                    );
+                    accountLinks.add(accountLink);
+                }
+            }
+
+            if (!accountLinks.isEmpty()) {
+                update accountLinks;
+                publishAccountLinkMatchedEvent(accountLinks);
+            }
+        } catch (Exception ex) {
+            // Log error with matchAccountLink
+        }
     }
 }
