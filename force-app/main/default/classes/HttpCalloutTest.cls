@@ -13,6 +13,7 @@ private with sharing class HttpCalloutTest {
         Test.setMock(HttpCalloutMock.class, mock);
         String url = 'https://testapi.io/api/mikereal';
         String method = 'POST';
+
         Test.startTest();
         String response = HttpCallout.makeCallout(url, method, requestBody);
         HttpCallout.makeFutureCallout(url, method, requestBody);

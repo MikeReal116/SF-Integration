@@ -15,7 +15,9 @@ public with sharing class HttpCallout {
         try {
             makeCallout(url, method, body);
         } catch (Exception ex) {
-            // Log the error
+            Logger__c log = Utils.createLog(Utils.LogType.ERROR, ex.getMessage(), ex.getStackTraceString());
+            Logger__c stateLog = Utils.createLog(Utils.LogType.ERROR, body, null);
+            insert new List<Logger__c>{ log, stateLog };
         }
     }
 }

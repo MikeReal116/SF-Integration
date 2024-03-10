@@ -30,6 +30,9 @@
 		<members>AccountLink__c.Account__c</members>
 		<members>AccountLink__c.Color__c</members>
 		<members>AccountLink__c.External_Id__c</members>
+		<members>Logger__c.Message__c</members>
+		<members>Logger__c.Stack_Trace__c</members>
+		<members>Logger__c.Type__c</members>
 		<name>CustomField</name>
 	</types>
 	<types>
@@ -42,6 +45,7 @@
 		<members>AccountLinkMatched__e</members>
 		<members>AccountLink_API_Mapping__mdt</members>
 		<members>AccountLink__c</members>
+		<members>Logger__c</members>
 		<name>CustomObject</name>
 	</types>
 	<types>

@@ -7,7 +7,7 @@ public with sharing class AccountLinkMatchedTriggerHandler extends TriggerHandle
     public override void afterInsert() {
         System.debug('AccountLinkMatchedTriggerHandler.afterInsert');
         // remote site setting required for base url
-        // String url = 'https://testapi.io/api/mikereal';
+        // String url = 'https://testapi.io/api/mikereal/matches';
         // Integration permission set needed for Automated Process user if using Named Credentials
         String url = 'callout:MatchedNotificationSys//v1/v2';
         String method = 'POST';

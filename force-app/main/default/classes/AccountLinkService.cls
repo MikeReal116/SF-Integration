@@ -1,7 +1,4 @@
 public with sharing class AccountLinkService {
-    public static final Integer CREATED = 201;
-    public static final Integer INTERNAL_SERVER_ERROR = 500;
-
     public static void handlePostRequest() {
         Blob requestBody = RestContext.request.requestBody;
         Map<String, Object> requestBodyMap = (Map<String, Object>) JSON.deserializeUntyped(requestBody.toString());
@@ -34,7 +31,7 @@ public with sharing class AccountLinkService {
 
     private static void generateSuccessResponse(Integer numRecordsCreated, String message) {
         RestResponse response = RestContext.response;
-        response.statusCode = CREATED;
+        response.statusCode = Utils.CREATED;
         response.responseBody = Blob.valueOf(
             '{"status": "success" , "numRecordsCreated": ' + numRecordsCreated + ', "message": "' + message + '"}'
         );
@@ -42,7 +39,7 @@ public with sharing class AccountLinkService {
 
     public static void generateErrorResponse(Exception ex) {
         RestResponse response = RestContext.response;
-        response.statusCode = INTERNAL_SERVER_ERROR;
+        response.statusCode = Utils.INTERNAL_SERVER_ERROR;
         response.responseBody = Blob.valueOf('{"status": "error" , "message": "' + ex.getMessage() + '"}');
     }
 
@@ -79,7 +76,29 @@ public with sharing class AccountLinkService {
             );
             events.add(event);
         }
-        EventBus.publish(events);
+        List<Database.SaveResult> saveResult = EventBus.publish(events);
+        handlePublishResult(saveResult, accountLinks);
+    }
+
+    private static void handlePublishResult(List<Database.SaveResult> saveResult, List<SObject> records) {
+        List<Logger__c> logs = new List<Logger__c>();
+        for (Database.SaveResult result : saveResult) {
+            if (!result.isSuccess()) {
+                for (Database.Error error : result.getErrors()) {
+                    logs.add(
+                        Utils.createLog(
+                            Utils.LogType.ERROR,
+                            'Error publishing event: ' + error.getMessage(),
+                            AccountLinkService.class.getName()
+                        )
+                    );
+                }
+            }
+        }
+        if (!logs.isEmpty()) {
+            logs.add(Utils.createLog(Utils.LogType.ERROR, JSON.serialize(records), null));
+            insert logs;
+        }
     }
 
     public static void publishAccountLinkMatchedEvent(List<AccountLink__c> accountLinks) {
@@ -91,8 +110,8 @@ public with sharing class AccountLinkService {
             );
             events.add(event);
         }
-        System.debug('pushbliing matched event');
-        EventBus.publish(events);
+        List<Database.SaveResult> saveResult = EventBus.publish(events);
+        handlePublishResult(saveResult, accountLinks);
     }
 
     public static String generateRequestBody(List<AccountLinkMatched__e> matchedAccountLinks) {
@@ -148,7 +167,9 @@ public with sharing class AccountLinkService {
                 publishAccountLinkMatchedEvent(accountLinks);
             }
         } catch (Exception ex) {
-            // Log error with matchAccountLink
+            Logger__c log = Utils.createLog(Utils.LogType.ERROR, ex.getMessage(), AccountLinkService.class.getName());
+            Logger__c stateLog = Utils.createLog(Utils.LogType.ERROR, JSON.serialize(createdAccountLinks), null);
+            insert new List<Logger__c>{ log, stateLog };
         }
     }
 }
