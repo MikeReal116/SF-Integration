@@ -1,8 +1,10 @@
 @isTest
 public with sharing class HttpCalloutMockTest implements HttpCalloutMock {
     HttpResponse response;
-    public HttpCalloutMockTest(Integer statusCode, String status, String body) {
+    Boolean throwException = false;
+    public HttpCalloutMockTest(Integer statusCode, String status, String body, Boolean throwException) {
         response = generateHttpResponse(statusCode, status, body);
+        this.throwException = throwException;
     }
 
     public static HttpResponse generateHttpResponse(Integer statusCode, String status, String body) {
@@ -14,6 +16,9 @@ public with sharing class HttpCalloutMockTest implements HttpCalloutMock {
     }
 
     public HttpResponse respond(HttpRequest request) {
+        if (throwException) {
+            throw new CalloutException('Exception thrown');
+        }
         return response;
     }
 }

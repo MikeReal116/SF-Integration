@@ -9,7 +9,7 @@ private with sharing class HttpCalloutTest {
         );
         matchedAccountLinks.add(matchedAccountLink);
         String requestBody = AccountLinkService.generateRequestBody(matchedAccountLinks);
-        HttpCalloutMockTest mock = new HttpCalloutMockTest(200, 'OK', requestBody);
+        HttpCalloutMockTest mock = new HttpCalloutMockTest(200, 'OK', requestBody, false);
         Test.setMock(HttpCalloutMock.class, mock);
         String url = 'https://testapi.io/api/mikereal';
         String method = 'POST';
@@ -23,5 +23,20 @@ private with sharing class HttpCalloutTest {
         System.Assert.isTrue(responseMap.containsKey('items'), 'Response should contain items key');
         List<Object> items = (List<Object>) responseMap.get('items');
         System.Assert.areEqual(1, items.size(), 'Response should contain 1 item');
+    }
+
+    @IsTest
+    private static void testMakeFutureCalloutException() {
+        String url = 'https://testapi.io/api/mikereal';
+        String method = 'POST';
+        String body = 'test';
+        HttpCalloutMockTest mock = new HttpCalloutMockTest(Utils.INTERNAL_SERVER_ERROR, 'ERROR', body, true);
+        Test.setMock(HttpCalloutMock.class, mock);
+
+        Test.startTest();
+        HttpCallout.makeFutureCallout(url, method, body);
+        Test.stopTest();
+
+        System.Assert.isTrue([SELECT COUNT() FROM Logger__c] > 0, 'Log should be created');
     }
 }
